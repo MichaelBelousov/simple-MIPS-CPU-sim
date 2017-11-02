@@ -110,8 +110,8 @@ class Core_SC:
             sig.RegWrite = 1
             sig.RegDst = 1
             sig.ALUOp = 2
-        else:
-            raise ValueError("Unknown opcode 0x%02X" % opcode)
+        #else:
+        #    raise ValueError("Unknown opcode 0x%02X" % opcode)
         return 
 
     def ALU_control(self, alu_op, funct):  
@@ -121,11 +121,12 @@ class Core_SC:
         Output: alu_control_out
        
         """
+        alu_control_out = 0
         # One example is given, continue to finish other cases.
         if alu_op == 0:             # 00  
             alu_control_out = 2     # 0010
-        else:
-            raise ValueError("Unknown opcode code 0x%02X" % alu_op)
+        # else:
+        #    raise ValueError("Unknown opcode code 0x%02X" % alu_op)
         return alu_control_out
 
     def sign_extend(self, immd):
