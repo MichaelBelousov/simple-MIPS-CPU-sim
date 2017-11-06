@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import sys, re
 import core_sc, utilities
 
@@ -6,7 +8,7 @@ def     sys_error(s):
     exit(1)
 
 argc = len(sys.argv)
-if (argc < 2 or argc > 4): 
+if (argc < 2): 
     sys_error("Usage: mips_sim input_file [num_cycles] [-v]")
 
 verbose = 0
