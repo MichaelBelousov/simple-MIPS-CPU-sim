@@ -79,7 +79,7 @@ class Memory:
     clock:          Set input of the register to the value of the register 
     run:            To execute read/write memory
     ------
-    Note that without .set_write(), .clock() will not save the input value
+    Note that without .set_memwrite(), .run() will not save the input value
     """
     def __init__(self):
         self.data = {}
