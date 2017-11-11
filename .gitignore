@@ -1,0 +1,9 @@
+
+# python dev
+.pyc
+***.swp
+.venv
+
+# specific
+test
+

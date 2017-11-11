@@ -1,5 +1,5 @@
 import sys
-import utils
+# TODO: specify pyparsing imports
 from pyparsing import * 
 from collections import OrderedDict
 
@@ -9,21 +9,34 @@ COMMA = Suppress(',')
 # register pattern
 p_regis = Combine('$'+Word(alphanums))
 # r-type instruction pattern
-rtype_pattern = Word(alphas) + 2*(p_regis+COMMA) + p_regis
+rtype_pat= Word(alphas) + 2*(p_regis+COMMA) + p_regis
 # i-type instruction pattern
-itype_pattern = Word(alphas) + 2*(p_regis+COMMA) + Word(alphanums)
+itype_pat= Word(alphas) + 2*(p_regis+COMMA) + Word(alphanums)
+# j-type instruction pattern
+jtype_pat= Word(alphas) + Or(p_regis, Word(alphanums))
+
+# TODO: Or all
+instr_pat= Or(itype_pat, Or(rtype_pat, jtype_pat))
+# TODO: rename all
 
 ### END ###
 
-### ENV ###
+def add(p):
+    """returns a 32-bit binint representing an add instruction"""
+    opcode = '000000'
+    funct = '000000'
+    reg1 = str(0)
+    reg2 = str()
+    reg3 = str()
 
-# all accesses must use default of 0
 
-regs = {}
+instr = {
+        'add' : add,
+        }
 
-mem = OrderedDict()
 
-### END ###
+def eval_instr(s):
+    pass
 
 def eval_rtype(s):
     s = rtype_pattern.parseString(s)
@@ -62,18 +75,24 @@ def I_eval(s):
     else:
         return repr(eval(s))
 
-### MAIN ###
+def stripcom(s, delim):
+    """strip lines of comments and whitespace"""
+    if delim in s:
+        return s.split(delim)[0].strip()
+    else:
+        return s.strip()
 
-# TODO: Add simple history
-while True:
-    try:
-        inp = input('%=>')
-        print(I_eval(inp))
-    except KeyboardInterrupt as e:
-        print('\nexiting...')
-        sys.exit()
-    except EOFError as e:
-        print('\nexiting...')
-        sys.exit()
-    except Exception as e:
-        print(e)
+if __name__ == '__main__':
+    inp = sys.stdin
+    if len(sys.argv) > 1:
+        inp = open(sys.argv[1], 'r')
+    for l in inp:
+        l = stripcom(l, '#')
+        if not l:
+            continue
+        print('L>>',l)
+        try:
+            instr_pat.parseString(l)
+        except SyntaxError as e:
+            print(e)
+
