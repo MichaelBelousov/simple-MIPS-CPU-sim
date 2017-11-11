@@ -44,7 +44,6 @@ class RegisterFile(Component, dict):
     def __getitem(self, key) :
         return self.get(k,0)
 
-
 class Clock(Component):
     def __init__(self, inittime):
         super().__init__()
