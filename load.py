@@ -7,11 +7,13 @@ from collections import OrderedDict
 
 COMMA = Suppress(',')
 # register pattern
-p_regis = Combine('$'+Word(alphanums))
+pregis = Combine('$'+Word(alphanums))
 # r-type instruction pattern
-rtype_pat= Word(alphas) + 2*(p_regis+COMMA) + p_regis
+prtype = Word(alphas) + 2*(pregis+COMMA) + pregis
 # i-type instruction pattern
-itype_pat= Word(alphas) + 2*(p_regis+COMMA) + Word(alphanums)
+pitype = Word(alphas) + 2*(pregis+COMMA) + Word(alphanums)
+
+pitypemem = Word(alphas) + pregist+ COMMA
 # j-type instruction pattern
 jtype_pat= Word(alphas) + Or(p_regis, Word(alphanums))
 
@@ -20,6 +22,10 @@ instr_pat= Or(itype_pat, Or(rtype_pat, jtype_pat))
 # TODO: rename all
 
 ### END ###
+
+def loadrtype(i):
+
+    pass
 
 def add(p):
     """returns a 32-bit binint representing an add instruction"""
@@ -83,6 +89,7 @@ def stripcom(s, delim):
         return s.strip()
 
 if __name__ == '__main__':
+    # Load input
     inp = sys.stdin
     if len(sys.argv) > 1:
         inp = open(sys.argv[1], 'r')

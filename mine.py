@@ -21,7 +21,7 @@ class Memory(Component, dict):
 class RegisterFile(Component, dict):
     def __init__(self):
         Component.__init__(self)
-        self[('0', 'zero')] = object()
+        self[('0', 'zero')] = 0
         self[('1', 'a0')] = 0 
         self[('1', 'a0')] = 0 
         self[('', 'a0')] = 0 
