@@ -22,7 +22,7 @@ def makeregispile():
         # special registers
         if r in (0,26,27):
             write = False
-        regs.append(Regis(writable=write))
+        regs.append(Regis(Bint(0), writable=write))
     # NOTE: could use an ordered dict for some structual compression
     aliases = {
         '0' : regs[0],

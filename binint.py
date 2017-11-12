@@ -13,6 +13,8 @@ class Binint:
                 self.val = -a
             elif n.count('1') + n.count('0') == len(n):
                 self.val = eval('0b'+n)
+            elif not n:
+                self.val = 0
             else:
                 self.val = eval(n)
         elif isinstance(n, Binint):

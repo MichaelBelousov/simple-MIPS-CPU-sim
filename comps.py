@@ -37,9 +37,9 @@ class ClockedComponent(Component):
 class PC(ClockedComponent):
     def __init__(self, initval, clock):
         super().__init__(clock)
-        self.ins['in'] = 0
-        self.outs['out'] = 0
-        self.reg = Regis(initval)
+        self.ins['in'] = Bint(initval)
+        self.outs['out'] = Bint(initval)
+        self.reg = Regis(Bint(initval))
     def onupclock(self):
         self.reg.val = self.ins['in']()
         self.outs['out'] = self.reg.val
@@ -53,10 +53,10 @@ class Memory(Component, dict):
         self.ins['read_cont'] = Bint(0)
         self.outs['read'] = Bint(0)  # TODO: change to out for consistency
     def __getitem__(self, key):
-        if isinstance(key, int):
-            return self.get(key,0)
+        if hasattr(key, '__int__'):
+            return self.get(int(key),0)
         else: 
-            raise TypeError('Memory Component takes integer address indices')
+            raise TypeError('Memory Component takes integer-compatible indices')
     def tick(self):
         Component.tick(self)
         addr = self.ins['addr']()
@@ -73,7 +73,7 @@ class Clock(Component):
         super().__init__()
         self.inittime = inittime
         self.period = 1  # in seconds
-        self.outs['clock'] = False
+        self.outs['clock'] = Bint(1)
     def tick(self):
         super().tick()
         per = self.period
@@ -82,7 +82,7 @@ class Clock(Component):
 class Control(Component):
     def __init__(self):
         super().__init__()
-        self.ins['in'] = None
+        self.ins['in'] = Bint(0)
         self.setouts(0,0,0,0,0,0,0,0,0)
     def setouts(self, RegDst, Jump, Branch, MemRead, MemtoReg, ALUOp,
                 MemWrite, ALUSrc, RegWrite):
@@ -116,14 +116,14 @@ class Control(Component):
 class ALUControl(Component):
     def __init__(self):
         super().__init__()
-        self.ins['ALUOp'] = None
-        self.ins['funct'] = None
-        self.outs['ALUOp'] = None
+        self.ins['ALUOp'] = Bint(0)
+        self.ins['funct'] = Bint(0)
+        self.outs['ALUOp'] = Bint(0)
     def tick(self):
         super().tick()
-        funct = self.ins['funct']()[26:]
-        aluop0 = self.ins['ALUop']()[0]
-        aluop1 = self.ins['ALUop']()[1]
+        funct = self.ins['funct']()
+        aluop0 = self.ins['ALUOp']()[-1]
+        aluop1 = self.ins['ALUOp']()[-2]
         if not (aluop0 or aluop1):
             self.outs['ALUOp'] = Bint(0b0010, pad=4)
         elif aluop0 == 1:
@@ -141,28 +141,30 @@ class ALUControl(Component):
 class Multiplexer(Component):
     def __init__(self):
         super().__init__()
-        self.ins['control'] = None
-        self.ins['in_1'] = None
-        self.ins['in_2'] = None
-        self.outs['out'] = None
+        self.ins['control'] = Bint(0)
+        self.ins['in_1'] = Bint(0)
+        self.ins['in_2'] = Bint(0)
+        self.outs['out'] = Bint(0)
     def tick(self):
         super().tick()
         switch = bool(self.ins['control']())
-        self.outs['out'] = self.ins['in_2']() if switch else self.ins['in_1']()
+        a = self.ins['in_2']()
+        b = self.ins['in_1']()
+        self.outs['out'] = a if switch else b
 
 class ALU(Component):
     def __init__(self):
         super().__init__()
-        self.ins['control'] = None
-        self.ins['in_1'] = None
-        self.ins['in_2'] = None
-        self.outs['zero'] = None
-        self.outs['out'] = None
+        self.ins['control'] = Bint(0)
+        self.ins['in_1'] = Bint(0)
+        self.ins['in_2'] = Bint(0)
+        self.outs['zero'] = Bint(0)
+        self.outs['out'] = Bint(0)
     def tick(self):
         super().tick()
         cont = self.ins['control']()
-        a = self.ins['in_1']
-        b = self.ins['in_2']
+        a = self.ins['in_1']()
+        b = self.ins['in_2']()
         if cont == 0b0000:  # and
             self.outs['out'] = a & b
         elif cont == 0b0001:  # or
@@ -178,28 +180,28 @@ class ALU(Component):
 class SignExtend(Component):
     def __init__(self):
         super().__init__()
-        self.ins['in'] = None
-        self.outs['out'] = None
+        self.ins['in'] = Bint(0)
+        self.outs['out'] = Bint(0)
     def tick(self):
         super().tick()
         in_ = self.ins['in']()
-        self.outs['out'] = Bint(in_, pad=32)
+        self.outs['out'] = Bint(in_) 
 
 class ShiftLeftTwo(Component):
     def __init__(self):
         super().__init__()
-        self.ins['in'] = None
-        self.outs['out'] = None
+        self.ins['in'] = Bint(0)
+        self.outs['out'] = Bint(0)
     def tick(self):
         super().tick()
         in_ = self.ins['in']()
-        self.outs['out'] = Bint(in_ << 2, pad=32)
+        self.outs['out'] = Bint(in_ << 2)
 
 class AddFour(Component):
     def __init__(self):
         super().__init__()
-        self.ins['in'] = None
-        self.outs['out'] = None
+        self.ins['in'] = Bint(0)
+        self.outs['out'] = Bint(0)
     def tick(self):
         super().tick()
         in_ = self.ins['in']()
@@ -208,9 +210,9 @@ class AddFour(Component):
 class And(Component):
     def __init__(self):
         super().__init__()
-        self.ins['in_1'] = None
-        self.ins['in_2'] = None
-        self.outs['out'] = None
+        self.ins['in_1'] = Bint(0)
+        self.ins['in_2'] = Bint(0)
+        self.outs['out'] = Bint(0)
     def tick(self):
         super().tick()
         in1 = self.ins['in_1']()
@@ -221,13 +223,13 @@ class RegisterFile(Component):
     def __init__(self):
         super().__init__()
         self.regs = makeregispile()
-        self.ins['RegWrite'] = None  # Control->RegWrite
-        self.ins['read_reg_1'] = None
-        self.ins['read_reg_2'] = None
-        self.ins['write_reg'] = None  # which register to write to
-        self.ins['write_data'] = None  # data to write to write register
-        self.outs['read_data_1'] = None
-        self.outs['read_data_2'] = None
+        self.ins['RegWrite'] = Bint(0)  # Control->RegWrite
+        self.ins['read_reg_1'] = Bint(0)
+        self.ins['read_reg_2'] = Bint(0)
+        self.ins['write_reg'] = Bint(0)  # which register to write to
+        self.ins['write_data'] = Bint(0)  # data to write to write register
+        self.outs['read_data_1'] = Bint(0)
+        self.outs['read_data_2'] = Bint(0)
     def tick(self):
         super().tick()
         do_write = self.ins['RegWrite']()
@@ -235,8 +237,8 @@ class RegisterFile(Component):
         read2 = self.ins['read_reg_2']()
         write = self.ins['write_reg']()
         writedata = self.ins['write_data']()
-        self.outs['read_data_1'] = self.regs[str(read1)]
-        self.outs['read_data_2'] = self.regs[str(read2)]
+        self.outs['read_data_1'] = Bint(self.regs[str(read1)].val)
+        self.outs['read_data_2'] = Bint(self.regs[str(read2)].val)
         if do_write:
             self.regs[str(write)] = writedata
 
