@@ -1,7 +1,9 @@
-# TODO: make immutable
 class Binint:
     """high-level binary integer type"""
     # TODO: add class method for getting a string without constructing object
+    # TODO: add class method for constructing a binint from a list of binints
+    # TODO: replace most constructor functionality with conversion functions
+    # TODO: inherit from int?
     def __init__(self, n, pad=32):
         # TODO: rename pad to bits
         if isinstance(n, str):
@@ -42,7 +44,13 @@ class Binint:
     def __len__(self):
         return len(str(self))
     def __repr__(self):
-        return str(self)
+        if self.pad == 32:
+            return self.hexrepr()
+        else:
+            return str(self)
+    def hexrepr(self):
+        h = '0x'+hex(int(self.val))[2:].rjust(self.pad//4, '0')
+        return h
     def __add__(self, other):
         if not isinstance(other, Binint):
             other = Binint(other)
@@ -59,6 +67,11 @@ class Binint:
         if not isinstance(other, Binint):
             other = Binint(other)
         return self.val == other.val
+    def eq(self, other):
+        """bit equivalence, do not interpret as twos complement int"""
+        if not isinstance(other, Binint):
+            other = Binint(other)
+        return str(self) == str(other)
     def __mul__(self, other):
         if not isinstance(other, Binint):
             other = Binint(other)
@@ -78,8 +91,13 @@ class Binint:
         div, rem = divmod(self.val, other.val)
         return Binint(div, self.pad), Binint(rem, self.pad)
     def __getitem__(self, item):
-        return Binint(str(self)[item])
+        p = 1
+        if isinstance(item, slice):
+            p = item.stop - item.start
+        return Binint(str(self)[item], pad=p)
+    def __hash__(self):
+        return hash(str(self))
     def append(self, other):
-        return Binint(str(self) + str(other))
+        return Binint(str(self) + str(other), pad = self.pad+other.pad)
     def prepend(self, other):
-        return Binint(str(other) + str(self))
+        return Binint(str(other) + str(self), pad = self.pad+other.pad)

@@ -31,18 +31,18 @@ pinstr = pitype | prtype | pjtype
 # functions that return the binary data representing an instruction
 def rep_rtype(i):
     try:
-        r = regnums[i[1][1:]]
-        r += regnums[i[2][1:]]
+        r = regnums[i[2][1:]]
         r += regnums[i[3][1:]]
+        r += regnums[i[1][1:]]
         r += '00000'  # shiftamt
     except KeyError as e:
         raise KeyError('the register alias, {}, is unknown'.format(e))
     return r
 def rep_itype(i):
     try:
-        r = regnums[i[1][1:]]
-        r += regnums[i[2][1:]]
-        r += str(Bint(i[3],pad=16))
+        r = regnums[i[2][1:]]
+        r += regnums[i[1][1:]]
+        r += str(Bint(eval(i[3]),pad=16))
     except KeyError as e:
         raise KeyError('Unknown register, {}'.format(e))
     return r
@@ -104,7 +104,10 @@ instr = {
         }
 
 def parseinstr(i):
-    res = instr[i[0]](i)
+    try:
+        return instr[i[0]](i)
+    except KeyError as e:
+        raise KeyError('no such instruction, {}'.format(e))
 
 def stripcom(s, delim):
     """strip lines of comments and whitespace"""
@@ -123,17 +126,18 @@ if __name__ == '__main__':
     args.add_argument('-p1', '--phase1', action='store_true',
                         help='only run phase1 code')
     args = args.parse_args()
+    bin_instr = []
     for l in args.inputfile:
         l = stripcom(l, '#')
         if not l:
             continue
         try:
             i = pinstr.parseString(l)
-            parseinstr(i)
-        except SyntaxError as e:
+            res = parseinstr(i)
+            bin_instr.append(res)
+        except SyntaxError as e:  # TODO: replace with pyparsing exception
             raise SyntaxError('syntax of the instruction, "{}", is incorrect'.format(l))
     # construct CPU
     C = MIPSSingleCycleCPU()
-    # load instructions 
+    C.loadinstr(bin_instr)
     C.run()
-

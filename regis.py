@@ -14,6 +14,10 @@ class Regis:
             raise Warning('Writing to read-only reg')
         if self.lock: return
         self._val = inval
+    def __repr__(self):
+        return str(self)
+    def __str__(self):
+        return str(self._val)
 
 def makeregispile():
     regs = []

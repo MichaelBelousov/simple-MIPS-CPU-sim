@@ -2,6 +2,7 @@ from comps import *
 Mux = Multiplexer  # Multiplexer class alias
 from regis import Regis 
 import sys
+from pprint import pprint
         
 class CPU:
     def __init__(self):
@@ -17,9 +18,8 @@ class CPU:
     def tick(self):
         for c in self.comps:
             c.tick()
-        self.stat()
     def halt(self):
-        print('halting...')
+        print('terminating...')  # Add pausing of CPU
         sys.exit()
     def loadinstr(self, instrs=[]):
         """load a list of instructions into the CPU
@@ -58,7 +58,7 @@ class MIPSSingleCycleCPU(CPU):
         # connect component
         pc.bind('in', jumpmux, 'out')
         alu.bind('in_1', regisfile, 'read_data_1')
-        alu.bind('in_2', alumux, 'out', mask=(6,10))
+        alu.bind('in_2', alumux, 'out')
         alu.bind('control', alucont, 'ALUOp')
         instrmem.bind('addr', pc, 'out')
         instrmem.ins['write'] = lambda : Bint(0b0)
@@ -71,11 +71,11 @@ class MIPSSingleCycleCPU(CPU):
         regisfile.bind('RegWrite', control, 'RegWrite')
         regisfile.bind('read_reg_1', instrmem, 'read', mask=(6,11))
         regisfile.bind('read_reg_2', instrmem, 'read', mask=(11,16))
-        regisfile.bind('write_reg', writeregmux, 'out')
+        regisfile.bind('write_reg', writeregmux, 'out', mask=(0,5))
         regisfile.bind('write_data', writeregdatamux, 'out') # masking done in mux
         control.bind('in', instrmem, 'read', mask=(0,6))
         alucont.bind('ALUOp', control, 'ALUOp')
-        alucont.bind('funct', instrmem, 'read', mask=(27,32))
+        alucont.bind('funct', instrmem, 'read', mask=(26,32))
         branchalu.bind('in_1', pcaddfour, 'out')
         branchalu.bind('in_2', shiftl2, 'out')
         branchalu.ins['control'] = lambda : Bint(0b0010)
@@ -94,15 +94,21 @@ class MIPSSingleCycleCPU(CPU):
         branchmux.bind('control', branchand, 'out')
         jumpmux.bind('in_1', branchmux, 'out')  # flipped in the diagram
         jumpmux.bind('in_2', shiftl2, 'out')
-        jumpmux.bind('control', control, 'Jump')
+        jumpmux.bind('control', control, 'Jump')  # add single bit mask?
         branchand.bind('in_1', control, 'Branch')
         branchand.bind('in_2', alu, 'zero')
         pcaddfour.bind('in', pc, 'out')
         shiftl2.bind('in', instrmem, 'read', mask=(6,32))
         # introspective component
-        self.comps.append(Inspector(clock, self.comps))
+        inspector = Inspector(clock,pc,alu,instrmem,datamem,regisfile,control,alucont,branchalu,
+                        signext,writeregmux,alumux,writeregdatamux,branchmux,jumpmux,
+                        branchand,pcaddfour,shiftl2)
+        self.inspector = inspector
+        self.comps.insert(1,inspector)  # tick inspector first after clock
     def loadinstr(self, instrs=[]):
+        # pprint([str(i) for i in instrs])
         for i in range(0, len(instrs)):
-            self.instrmem[i] = instrs[i]
+            self.instrmem[4*i] = instrs[i]
+        # pprint(self.instrmem)
     def stat(self):
-        pass
+        self.inspector.stat()

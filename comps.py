@@ -1,6 +1,10 @@
 from time import time
 from binint import Binint as Bint
 from regis import Regis, makeregispile
+from pprint import pprint, pformat
+import utilities
+
+# TODO: add repr to all components
 
 # NOTE: Abstract base class? (import ABC)
 class Component:
@@ -63,10 +67,25 @@ class Memory(Component, dict):
         write = self.ins['write']()
         do_write = self.ins['write_cont']
         do_read = self.ins['read_cont']
-        if do_read:
-            self.outs['read'] = Bint(self[addr])
+        if do_read:  # this is analagous to only binary words
+            self.outs['read'] = self[addr]
         elif do_write:
+            # TODO: replace with for loop?
             self[addr] = write
+    def __getitem__(self, loc):  # words
+        loc = Bint(loc)
+        item = ''  # TODO: use Bint.append()
+        item += str(dict.get(self, loc, Bint(0,pad=8)))
+        item += str(dict.get(self, loc+1, Bint(0,pad=8)))
+        item += str(dict.get(self, loc+2, Bint(0, pad=8)))
+        item += str(dict.get(self, loc+3, Bint(0, pad=8)))
+        return Bint(item)
+    def __setitem__(self, loc, val):  # words
+        loc = Bint(loc)
+        dict.__setitem__(self, loc, val[0:8])
+        dict.__setitem__(self, loc+1, val[8:16])
+        dict.__setitem__(self, loc+2, val[16:24])
+        dict.__setitem__(self, loc+3, val[24:32])
 
 class Clock(Component):
     def __init__(self, inittime=time()):
@@ -84,32 +103,32 @@ class Control(Component):
         super().__init__()
         self.ins['in'] = Bint(0)
         self.setouts(0,0,0,0,0,0,0,0,0)
-    def setouts(self, RegDst, Jump, Branch, MemRead, MemtoReg, ALUOp,
-                MemWrite, ALUSrc, RegWrite):
+    def setouts(self, RegDst, ALUSrc, MemtoReg, RegWrite, MemRead, 
+                MemWrite, Branch, ALUOp, Jump):
             self.outs['RegDst']     = Bint(RegDst)
-            self.outs['Jump']       = Bint(Jump)
-            self.outs['Branch']     = Bint(Branch)
-            self.outs['MemRead']    = Bint(MemRead)
-            self.outs['MemtoReg']   = Bint(MemtoReg)
-            self.outs['ALUOp']      = Bint(ALUOp)  # 2 bits
-            self.outs['MemWrite']   = Bint(MemWrite)
             self.outs['ALUSrc']     = Bint(ALUSrc)
+            self.outs['MemtoReg']   = Bint(MemtoReg)
             self.outs['RegWrite']   = Bint(RegWrite)
+            self.outs['MemRead']    = Bint(MemRead)
+            self.outs['MemWrite']   = Bint(MemWrite)
+            self.outs['Branch']     = Bint(Branch)
+            self.outs['ALUOp']      = Bint(ALUOp)  # 2 bits
+            self.outs['Jump']       = Bint(Jump)
     def tick(self):
         super().tick()
-        op = self.ins['in']()[0:6]
-        if op == 0b000000:  # R-format
-            self.setouts(1,0,0,1,0,0b10,0,1,0)
-        elif op == 0b001000:  #addi
-            self.setouts(0,0,0,0,0,0b00,0,0,0)  # TODO: implement
-        elif op == 0b100011:  #lw
-            self.setouts(0,1,1,1,1,0b00,0,0,0)
-        elif op == 0b101011:  #sw
-            self.setouts(0,1,0,0,0,0b00,0,0,0)
-        elif op == 0b000100:  #beq
-            self.setouts(0,0,0,0,0,0b01,1,0,1)
-        elif op == 0b000100:  #j
-            self.setouts(0,0,0,0,0,0b00,0,0,0)  # TODO: implement
+        op = self.ins['in']()
+        if op == '000000':  # R-format
+            self.setouts(1,0,0,1,0,0,0,0b10,0)
+        elif op == '001000':  #addi
+            self.setouts(0,1,0,1,0,0,0,0b00,0)
+        elif op == '100011':  #lw
+            self.setouts(0,1,1,1,1,0,0,0b00,0)
+        elif op == '101011':  #sw
+            self.setouts(0,1,0,0,0,1,0,0b00,0)
+        elif op == '000100':  #beq
+            self.setouts(0,0,0,0,0,0,1,0b01,0)
+        elif op == '000100':  #j
+            self.setouts(0,0,0,0,0,0,0,0b00,1)
         else:
             raise Exception('unknown opcode, {}'.format(op))
         
@@ -122,21 +141,28 @@ class ALUControl(Component):
     def tick(self):
         super().tick()
         funct = self.ins['funct']()
-        aluop0 = self.ins['ALUOp']()[-1]
-        aluop1 = self.ins['ALUOp']()[-2]
-        if not (aluop0 or aluop1):
+        aluop = self.ins['ALUOp']()
+        aluop0 = aluop[-1]
+        aluop1 = aluop[-2]
+        if not aluop:
             self.outs['ALUOp'] = Bint(0b0010, pad=4)
-        elif aluop0 == 1:
+        elif aluop0 == '1':
             self.outs['ALUOp'] = Bint(0b0110, pad=4)
-        elif aluop1 == 1:  # add
-            if funct[2:] == 0b0000:
+        elif aluop1 == '1':  # r-type
+            if funct == '100000':
+                self.outs['ALUOp'] = Bint(0b0010, pad=4)
+            elif funct == '100010':
                 self.outs['ALUOp'] = Bint(0b0110, pad=4)
-            elif funct[2:] == 0b0010:
+            elif funct == '100100':
                 self.outs['ALUOp'] = Bint(0b0000, pad=4)
-            elif funct[2:] == 0b0101:
+            elif funct == '100101':
                 self.outs['ALUOp'] = Bint(0b0001, pad=4)
-            elif funct[2:] == 0b1010:
-                self.outs['ALUOp'] = Bint(0b0111, pard=4)
+            elif funct == '101010':
+                self.outs['ALUOp'] = Bint(0b0111, pad=4)
+            else:
+                raise ValueError('Bad funct value')
+        else:
+            raise ValueError('Bad aluOp')  # this is theoretically impossible
 
 class Multiplexer(Component):
     def __init__(self):
@@ -165,15 +191,15 @@ class ALU(Component):
         cont = self.ins['control']()
         a = self.ins['in_1']()
         b = self.ins['in_2']()
-        if cont == 0b0000:  # and
+        if cont == '0000':  # and
             self.outs['out'] = a & b
-        elif cont == 0b0001:  # or
+        elif cont == '0001':  # or
             self.outs['out'] = a | b
-        elif cont == 0b0010:  # add
+        elif cont == '0010':  # add
             self.outs['out'] = a + b
-        elif cont == 0b0110:  # sub
+        elif cont == '0110':  # sub
             self.outs['out'] = a - b
-        elif cont == 0b0111:  # slt
+        elif cont == '0111':  # slt
             self.outs['out'] = Bint(1) if a < b else Bint(0)
         self.outs['zero'] = Bint(1) if not self.outs['out'] else Bint(0)
 
@@ -235,16 +261,83 @@ class RegisterFile(Component):
         do_write = self.ins['RegWrite']()
         read1 = self.ins['read_reg_1']()
         read2 = self.ins['read_reg_2']()
-        write = self.ins['write_reg']()
         writedata = self.ins['write_data']()
+        write = self.ins['write_reg']()
         self.outs['read_data_1'] = Bint(self.regs[str(read1)].val)
         self.outs['read_data_2'] = Bint(self.regs[str(read2)].val)
-        if do_write:
-            self.regs[str(write)] = writedata
+        if do_write and write != 0:  # ignore zero register writes
+            assert str(write) in self.regs, '{} not a valid register num'.format(write)
+            self.regs[str(write)].val = writedata
+    def __repr__(self):
+        return str(self)
+    def __str__(self):
+        valid = [str(i) for i in range(0,32)]
+        d = {k:v for k,v, in self.regs.items() if k in valid}
+        return pformat(d)
 
 class Inspector(ClockedComponent):
-    def __init__(self, clock, comps):
+    """Component that listens to other components and 
+    inspects data to act upon it for debugging and introspective
+    purposes."""
+    def __init__(self, clock, pc, alu, instrmem, datamem, 
+            regisfile, control, alucont, branchalu, signext, 
+            writeregmux, alumux,writeregdatamux,branchmux,jumpmux, 
+            branchand,pcaddfour,shiftl2):
         super().__init__(clock)
-        self.comps = comps
+        self.cyclec = 0
+        self.pc = pc
+        self.alu = alu
+        self.instrmem = instrmem
+        self.datamem = datamem
+        self.regisfile = regisfile
+        self.control = control
+        self.alucont = alucont
+        self.branchalu = branchalu
+        self.signext = signext
+        self.writeregmux = writeregmux
+        self.alumux = alumux
+        self.writeregdatamux = writeregdatamux
+        self.branchmux = branchmux
+        self.jumpmux = jumpmux
+        self.branchand = branchand
+        self.pcaddour = pcaddfour
+        self.shiftl2 = shiftl2
     def onupclock(self):
-        print('CLOCK')        
+        # self.clock()
+        self.oversee()
+        self.stat()
+    def stat(self):
+        if self.cyclec == 0:  # skips first cycle cuz it's invalid
+            self.cyclec += 1
+            return
+        self.cyclec += 1
+    def oversee(self):
+        if self.cyclec == 0: return
+        utilities.print_new_cycle(self.cyclec)
+        print('Data') 
+        pprint(self.datamem)
+        print('Registers')
+        print(self.regisfile)
+        print('PC:', self.pc.outs['out'])
+        print('Opcode:', self.control.ins['in']())
+        print('Instr:', self.instrmem.outs['read'])
+        print('s:', self.instrmem.outs['read'][6:11])
+        print('t:', self.instrmem.outs['read'][11:16])
+        print('d:', self.instrmem.outs['read'][16:21])
+        print('shiftamt:', self.instrmem.outs['read'][21:26])
+        print('funct:', self.instrmem.outs['read'][26:32])
+        print('ALU-out', self.alu.outs['out'])
+        print('ALU-in1', self.alu.ins['in_1']())
+        print('ALU-in2', self.alu.ins['in_2']())
+        print('ALU-in-cont', self.alu.ins['control']())
+        print('ALU-cont-in', self.alucont.ins['ALUOp']())
+        print('ALU-cont-funct', self.alucont.ins['funct']())
+        print('ALU-cont-out', self.alucont.outs['ALUOp'])
+        print('cont-ALUOp', self.control.outs['ALUOp'])
+        print('signext-in', self.signext.ins['in']())
+        print('signext-out', self.signext.outs['out'])
+        print('RegWrite', self.regisfile.ins['RegWrite']())
+        print('RegWriteNumb(mux)', self.writeregmux.outs['out'])
+        print('RegDst', self.control.outs['RegDst'])
+        print('RegWriteNumb', self.regisfile.ins['write_reg']())
+        print('RegWriteData', self.regisfile.ins['write_data']())
