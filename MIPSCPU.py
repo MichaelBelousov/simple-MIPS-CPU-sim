@@ -1,17 +1,26 @@
 from comps import *
 Mux = Multiplexer  # Multiplexer class alias
 from regis import Regis 
+import sys
         
 class CPU:
     def __init__(self):
         self.comps = []
     def run(self):
-        while True:
-            self.tick()
+        try:
+            while True:
+                self.tick()
+        except KeyboardInterrupt:
+            self.halt()
+        except EOFError:
+            self.halt()
     def tick(self):
         for c in self.comps:
             c.tick()
         self.stat()
+    def halt(self):
+        print('halting...')
+        sys.exit()
     def loadinstr(self, instrs=[]):
         """load a list of instructions into the CPU
         instruction memory."""
@@ -62,8 +71,8 @@ class MIPSSingleCycleCPU(CPU):
         regisfile.bind('RegWrite', control, 'RegWrite')
         regisfile.bind('read_reg_1', instrmem, 'read', mask=(6,11))
         regisfile.bind('read_reg_2', instrmem, 'read', mask=(11,16))
-        regisfile.bind('write_reg', writeregmux, 'out', mask=(27,32))
-        regisfile.bind('write_data', writeregdatamux, 'out')
+        regisfile.bind('write_reg', writeregmux, 'out')
+        regisfile.bind('write_data', writeregdatamux, 'out') # masking done in mux
         control.bind('in', instrmem, 'read', mask=(0,6))
         alucont.bind('ALUOp', control, 'ALUOp')
         alucont.bind('funct', instrmem, 'read', mask=(27,32))
