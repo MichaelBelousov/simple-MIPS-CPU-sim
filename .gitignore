@@ -3,6 +3,7 @@
 .pyc
 ***.swp
 .venv
+__pycache__/
 
 # specific
 test

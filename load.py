@@ -1,85 +1,110 @@
 import sys
 # TODO: specify pyparsing imports
 from pyparsing import * 
-from collections import OrderedDict
+import argparse
+from MIPSCPU import *
+from regnum import regnums
 
 ### PATTERNS ###
 
 COMMA = Suppress(',')
+LPAR = Suppress('(')
+RPAR = Suppress(')')
 # register pattern
 pregis = Combine('$'+Word(alphanums))
 # r-type instruction pattern
 prtype = Word(alphas) + 2*(pregis+COMMA) + pregis
 # i-type instruction pattern
-pitype = Word(alphas) + 2*(pregis+COMMA) + Word(alphanums)
 
-pitypemem = Word(alphas) + pregist+ COMMA
+pitypemem = Word(alphas) + pregis + COMMA + Word(nums) + LPAR + pregis + RPAR
+pitypenrm = Word(alphas) + 2*(pregis+COMMA) + Word(alphanums)
+
+pitype = pitypemem | pitypenrm
 # j-type instruction pattern
-jtype_pat= Word(alphas) + Or(p_regis, Word(alphanums))
+pjtype = Word(alphas) + (pregis | Word(alphanums))
 
-# TODO: Or all
-instr_pat= Or(itype_pat, Or(rtype_pat, jtype_pat))
-# TODO: rename all
+pinstr = pitype | prtype | pjtype
 
 ### END ###
 
-def loadrtype(i):
-
-    pass
-
+# TODO: fix names
+# functions that return the binary data representing an instruction
+def rep_rtype(i):
+    try:
+        r = regnums[i[1][1:]]
+        r += regnums[i[2][1:]]
+        r += regnums[i[3][1:]]
+        r += '00000'  # shiftamt
+    except KeyError as e:
+        raise KeyError('the register alias, {}, is unknown'.format(e))
+    return r
+def rep_itype(i):
+    try:
+        r = regnums[i[1][1:]]
+        r += regnums[i[2][1:]]
+        r += str(Bint(i[3],pad=16))
+    except KeyError as e:
+        raise KeyError('Unknown register, {}'.format(e))
+    return r
+def rep_itypemem(i):
+    try:
+        r = regnums[i[1][1:]]
+        r += regnums[i[3][1:]]
+        r += str(Bint(i[2],pad=16))
+    except KeyError as e:
+        raise KeyError('Unknown register, {}'.format(e))
+    return r
 def add(p):
-    """returns a 32-bit binint representing an add instruction"""
     opcode = '000000'
-    funct = '000000'
-    reg1 = str(0)
-    reg2 = str()
-    reg3 = str()
-
+    funct = '100000'
+    return Bint(opcode+rep_rtype(p)+funct)
+def sub(p):
+    opcode = '000000'
+    funct = '100010'
+    return Bint(opcode+rep_rtype(p)+funct)
+def _and(p):
+    opcode = '000000'
+    funct = '100100'
+    return Bint(opcode+rep_rtype(p)+funct)
+def _or(p):
+    opcode = '000000'
+    funct = '100101'
+    return Bint(opcode+rep_rtype(p)+funct)
+def slt(p):
+    opcode = '000000'
+    funct = '101010'
+    return Bint(opcode+rep_rtype(p)+funct)
+def addi(p):
+    opcode = '001000'
+    return Bint(opcode+rep_itype(p))
+def lw(p):
+    opcode = '100011'
+    return Bint(opcode+rep_itypemem(p))
+def sw(p):
+    opcode = '101011'
+    return Bint(opcode+rep_itypemem(p))
+def beq(p):
+    opcode = '000100'
+    return Bint(opcode+rep_itype(p))
+def j(p):
+    opcode = '000010'
+    return Bint(opcode+Bint(p[1],pad=26))
 
 instr = {
         'add' : add,
+        'addi' : addi,
+        'sub' : sub,
+        'and' : _and,
+        'or' : _or,
+        'slt' : slt,
+        'lw' : lw,
+        'sw' : sw,
+        'beq' : beq,
+        'j' : j
         }
 
-
-def eval_instr(s):
-    pass
-
-def eval_rtype(s):
-    s = rtype_pattern.parseString(s)
-    typ = s[0]
-    # TODO: iterate over list instruction obj list
-    if typ  == 'add':
-        s1 = regs.get(s[2], 0)
-        s2 = regs.get(s[3], 0)
-        regs[ s[1] ] = s1 + s2
-        return regs[s[1]]
-    elif typ  == 'addi':
-        s1 = regs.get(s[2], 0)
-        s2 = regs.get(s[3], 0)
-        regs[ s[1] ] = s1 + s2
-        return regs[s[1]]
-    elif typ == 'sub':
-        s1 = regs.get(s[2], 0)
-        s2 = regs.get(s[3], 0)
-        regs[ s[1] ] = s1 - s2
-        return regs[s[1]]
-
-def eval_itype(s):
-    s = itype_pattern.parseString(s)
-    typ = s[0]
-    if typ  == 'addi':
-        s1 = regs.get(s[2], 0)
-        s2 = eval(s[3])
-        regs[ s[1] ] = s1 + s2
-        return regs[s[1]]
-
-def I_eval(s):
-    if rtype_pattern.matches(s):
-        return eval_rtype(s)
-    elif itype_pattern.matches(s):
-        return eval_itype(s)
-    else:
-        return repr(eval(s))
+def parseinstr(i):
+    res = instr[i[0]](i)
 
 def stripcom(s, delim):
     """strip lines of comments and whitespace"""
@@ -90,16 +115,25 @@ def stripcom(s, delim):
 
 if __name__ == '__main__':
     # Load input
-    inp = sys.stdin
-    if len(sys.argv) > 1:
-        inp = open(sys.argv[1], 'r')
-    for l in inp:
+    args = argparse.ArgumentParser(description='Simulate a single-cycle MIPS processor')
+    args.add_argument('inputfile', metavar='INPUTFILE', type=str, nargs='?', default=sys.stdin,
+                        help='file to read input from, if absent defaults to stdin')
+    args.add_argument('-v', '--verbose', action='store_true',
+                        help='run in verbose mode')
+    args.add_argument('-p1', '--phase1', action='store_true',
+                        help='only run phase1 code')
+    args = args.parse_args()
+    for l in args.inputfile:
         l = stripcom(l, '#')
         if not l:
             continue
-        print('L>>',l)
         try:
-            instr_pat.parseString(l)
+            i = pinstr.parseString(l)
+            parseinstr(i)
         except SyntaxError as e:
-            print(e)
+            raise SyntaxError('syntax of the instruction, "{}", is incorrect'.format(l))
+    # construct CPU
+    C = MIPSSingleCycleCPU()
+    # load instructions 
+    C.run()
 

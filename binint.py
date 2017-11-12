@@ -1,13 +1,22 @@
-
+# TODO: make immutable
 class Binint:
-    def __init__(self, n, pad=1):
+    """high-level binary integer type"""
+    # TODO: add class method for getting a string without constructing object
+    def __init__(self, n, pad=32):
+        # TODO: rename pad to bits
         if isinstance(n, str):
-            if n[0] == '1':
+            if n.startswith('0b') or n.startswith('0x'):
+                self.val = eval(n)
+            elif n.startswith('1'):
                 a = ''.join( ('1' if c=='0' else '0' for c in n) )
                 a = eval('0b'+a)+1
                 self.val = -a
-            else:
+            elif n.count('1') + n.count('0') == len(n):
                 self.val = eval('0b'+n)
+            else:
+                self.val = eval(n)
+        elif isinstance(n, Binint):
+            self.val = n.val
         elif isinstance(n, int):
             self.val = n
         else:
@@ -16,19 +25,20 @@ class Binint:
     def __int__(self):
         return self.val
     def __str__(self):
-        a = bin(abs(self.val))[2:]
+        a = '0'+bin(abs(self.val))[2:]
         if self.val < 0:
             a = ''.join( ('1' if c=='0' else '0' for c in a) )
             a = bin(eval('0b'+a)+1)[2:]
-        if self.val < 0:
-            a = '1'+a
-        else: 
-            a = '0'+a
-        # pad
-        if len(a) < self.pad:
-            sign = '1' if self.val < 0 else '0'
-            a = sign*(self.pad-len(a)) + a
+        sign = '0' if self.val >= 0 else '1'
+        a = a.rjust(self.pad, sign)[-self.pad:]
         return a
+    def __bool__(self):
+        return bool(self.val)
+    def __float__(self):
+        # TODO: replace with IEEE754 floating point value
+        return float(self.val)
+    def __len__(self):
+        return len(str(self))
     def __repr__(self):
         return str(self)
     def __add__(self, other):
@@ -51,33 +61,23 @@ class Binint:
         if not isinstance(other, Binint):
             other = Binint(other)
         return Binint(self.val * other.val, self.pad)
+    def __and__(self, other):
+        return Binint(self.val & other.val)
+    def __or__(self, other):
+        return Binint(self.val | other.val)
     def __lshift__(self, shift):
         return Binint(self.val << shift, self.pad)
     def __rshift__(self, shift):
         return Binint(self.val >> shift, self.pad)
-    def divide(self, other):
+    def __divmod__(self, other):
         '''other is the divisor'''
-        # TODO: replace with divmod of values
         if not isinstance(other, Binint):
             other = Binint(other)
-        lself = len(str(self))
-        lother = len(str(other))
-        l = max(lself, lother)
-        quotient = Binint(0)
-        divisor = Binint(str(other) + l*'0')
-        remainder = self
-        print('iter', 'Q', 'D', 'R')
-        print(0, quotient, divisor, remainder)
-        for i in range(1, len(str(self))+2):
-            remainder -= divisor
-            if remainder < 0:
-                remainder += divisor
-                quotient = Binint(str(quotient)[1:]+'0')
-            else:
-                quotient = Binint(str(quotient)[1:]+'1')
-            divisor = Binint('0'+str(divisor)[:-1])
-            print(i, quotient, divisor, remainder)
-        print('int result: ({}, {})'.format(quotient.val, remainder.val))
-        return quotient, remainder
-
-
+        div, rem = divmod(self.val, other.val)
+        return Binint(div, self.pad), Binint(rem, self.pad)
+    def __getitem__(self, item):
+        return Binint(str(self)[item])
+    def append(self, other):
+        return Binint(str(self) + str(other))
+    def prepend(self, other):
+        return Binint(str(other) + str(self))
