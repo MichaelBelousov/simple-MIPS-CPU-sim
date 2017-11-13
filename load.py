@@ -16,14 +16,15 @@ pregis = Combine('$'+Word(alphanums))
 prtype = Word(alphas) + 2*(pregis+COMMA) + pregis
 # i-type instruction pattern
 
-pitypemem = Word(alphas) + pregis + COMMA + Word(nums) + LPAR + pregis + RPAR
-pitypenrm = Word(alphas) + 2*(pregis+COMMA) + Word(alphanums)
+pintliteral = Word('-'+alphanums)
+pitypemem = Word(alphas) + pregis + COMMA + pintliteral + LPAR + pregis + RPAR
+pitypenrm = Word(alphas) + 2*(pregis+COMMA) + pintliteral
 
 pitype = pitypemem | pitypenrm
 # j-type instruction pattern
 pjtype = Word(alphas) + (pregis | Word(alphanums))
 
-pinstr = pitype | prtype | pjtype
+pinstr = pitype | prtype | pjtype | 'nop'
 
 ### END ###
 
@@ -48,9 +49,9 @@ def rep_itype(i):
     return r
 def rep_itypemem(i):
     try:
-        r = regnums[i[1][1:]]
-        r += regnums[i[3][1:]]
-        r += str(Bint(i[2],pad=16))
+        r = regnums[i[3][1:]]  # registers
+        r += regnums[i[1][1:]]
+        r += str(Bint(i[2],pad=16))  # immediate
     except KeyError as e:
         raise KeyError('Unknown register, {}'.format(e))
     return r
@@ -89,6 +90,8 @@ def beq(p):
 def j(p):
     opcode = '000010'
     return Bint(opcode+Bint(p[1],pad=26))
+def nop(p):
+    return Bint(0)
 
 instr = {
         'add' : add,
@@ -100,7 +103,8 @@ instr = {
         'lw' : lw,
         'sw' : sw,
         'beq' : beq,
-        'j' : j
+        'j' : j,
+        'nop' : nop
         }
 
 def parseinstr(i):

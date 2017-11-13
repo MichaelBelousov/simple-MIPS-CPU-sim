@@ -19,7 +19,7 @@ class CPU:
         for c in self.comps:
             c.tick()
     def halt(self):
-        print('terminating...')  # Add pausing of CPU
+        print('terminating...')  # TODO: add pausing with inspection interface
         sys.exit()
     def loadinstr(self, instrs=[]):
         """load a list of instructions into the CPU
@@ -35,14 +35,14 @@ class MIPSSingleCycleCPU(CPU):
         # construct components
         clock = Clock()
         pc = PC(0, clock)
-        alu = ALU()
+        alu = ALU(clock)
         instrmem = Memory()
         self.instrmem = instrmem
         datamem = Memory()
         regisfile = RegisterFile()
         control = Control()
         alucont = ALUControl()
-        branchalu = ALU()
+        branchalu = ALU(clock)
         signext = SignExtend()
         writeregmux = Mux()
         alumux = Mux()
@@ -52,9 +52,9 @@ class MIPSSingleCycleCPU(CPU):
         branchand = And()
         pcaddfour = AddFour()
         shiftl2 = ShiftLeftTwo()
-        self.comps = [clock,pc,alu,instrmem,datamem,regisfile,control,alucont,branchalu,
+        self.comps = [clock,pc,instrmem,datamem,regisfile,control,alucont,branchalu,
                         signext,writeregmux,alumux,writeregdatamux,branchmux,jumpmux,
-                        branchand,pcaddfour,shiftl2]
+                        branchand,pcaddfour,shiftl2,alu]
         # connect component
         pc.bind('in', jumpmux, 'out')
         alu.bind('in_1', regisfile, 'read_data_1')
@@ -62,10 +62,10 @@ class MIPSSingleCycleCPU(CPU):
         alu.bind('control', alucont, 'ALUOp')
         instrmem.bind('addr', pc, 'out')
         instrmem.ins['write'] = lambda : Bint(0b0)
-        instrmem.ins['write_cont'] = lambda : Bint(0b0)
-        instrmem.ins['read_cont'] = lambda : Bint(0b1)
-        datamem.bind('addr', pc, 'out')
-        datamem.bind('write', pc, 'out')
+        instrmem.ins['write_cont'] = lambda : Bint(0)
+        instrmem.ins['read_cont'] = lambda : Bint(1)
+        datamem.bind('addr', alu, 'out')
+        datamem.bind('write', regisfile, 'read_data_2')
         datamem.bind('write_cont', control, 'MemWrite')
         datamem.bind('read_cont', control, 'MemRead')
         regisfile.bind('RegWrite', control, 'RegWrite')
