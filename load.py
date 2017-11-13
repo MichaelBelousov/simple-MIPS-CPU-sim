@@ -23,8 +23,9 @@ pitypenrm = Word(alphas) + 2*(pregis+COMMA) + pintliteral
 pitype = pitypemem | pitypenrm
 # j-type instruction pattern
 pjtype = Word(alphas) + (pregis | Word(alphanums))
+pnop = 'nop'
 
-pinstr = pitype | prtype | pjtype | 'nop'
+pinstr = pitype | prtype | pjtype | pnop
 
 ### END ###
 
@@ -42,7 +43,8 @@ def rep_rtype(i):
         r += regnums[i[1][1:]]
         r += '00000'  # shiftamt
     except KeyError as e:
-        raise KeyError('the register alias, {}, is unknown'.format(e))
+        print(f'the register alias, {e}, is unknown')
+        raise
     return r
 def rep_itype(i):
     try:
@@ -50,7 +52,8 @@ def rep_itype(i):
         r += regnums[i[1][1:]]
         r += str(Bint(eval(i[3]),pad=16))
     except KeyError as e:
-        raise KeyError('Unknown register, {}'.format(e))
+        print(f'Unknown register, {e}')
+        raise
     return r
 def rep_itypemem(i):
     try:
@@ -58,7 +61,8 @@ def rep_itypemem(i):
         r += regnums[i[1][1:]]
         r += str(Bint(i[2],pad=16))  # immediate
     except KeyError as e:
-        raise KeyError('Unknown register, {}'.format(e))
+        print(f'Unknown register, {e}')
+        raise
     return r
 def add(p):
     opcode = '000000'
@@ -116,16 +120,63 @@ def parseinstr(i):
     try:
         return instr[i[0]](i)
     except KeyError as e:
-        raise KeyError('no such instruction, {}'.format(e))
+        print(f'no such instruction, {e}')
+        raise
+
+def loadhex(s):
+    result = []
+    import re
+    hexre = re.compile(r'^0x[09af]{8}')  # hex at start of line
+    result = hexre.findall(s)
+    return result
 
 # TODO: add label detection and assembly
-def stripcomments(s, delim):
-    """strip lines of comments and whitespace"""
+def process(s, delim='#'):
+    """process raw mips code"""
+    # strip comments
+    result = []
     if delim in s:
-        return s.split(delim)[0].strip()
+        result = s.split(delim)[0].strip()
     else:
         return s.strip()
+    # replace labels
 
+def process(raw, comment='#',label=':'):
+    """process raw mips code"""
+    # strip comments
+    lines = []
+    for l in raw.split('\n'):
+        if comment in l:
+            result = split(comment)[0].strip()
+        else:
+            l = s.strip()
+        if l: 
+            lines.append(i)
+    # determine labels
+    for l in lines:
+        
+    # replace labels
+
+
+
+    # XXX: DONT check amount of colons
+    offset=0
+    for l in raw.split('\n'):
+        code, label = None, None
+        c = l.count(label)
+        if c == 1:
+            label, code = (i.strip() for i in l.split(label))
+        elif c == 0:
+            code = l
+        else:
+            raise SyntaxError('too many colons')
+        result = []
+        if comment in s:
+            result = s.split(comment)[0].strip()
+        else:
+            return s.strip()
+    # replace labels
+    
 if __name__ == '__main__':
     # Load input
     args = argparse.ArgumentParser(description='Simulate a single-cycle MIPS processor')
@@ -140,17 +191,19 @@ if __name__ == '__main__':
     args = args.parse_args()
     if 'inputfile' in args:
         args.inputfile = open(args.inputfile,'r')
+    # assemble
     bin_instr = []
     for l in args.inputfile:
-        l = stripcomments(l, '#')
+        l = process(l)
         if not l:
             continue
         try:
             i = pinstr.parseString(l)
             res = parseinstr(i)
             bin_instr.append(res)
-        except SyntaxError as e:  # TODO: replace with pyparsing exception
-            raise SyntaxError('syntax of the instruction, "{}", is incorrect'.format(l))
+        except ParseException  as e:
+            print('syntax of the instruction, "{e.line}" at {e.col}, {e.lineno}, is incorrect')
+            raise
     # construct CPU
     C = MIPSSingleCycleCPU()
     C.inspector.cyclelimit = args.cycleamt

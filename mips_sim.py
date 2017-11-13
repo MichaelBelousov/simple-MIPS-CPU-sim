@@ -3,7 +3,7 @@
 import sys, re
 import core_sc, utilities
 
-def     sys_error(s):
+def sys_error(s):
     print ("Error: " + s)
     exit(1)
 
