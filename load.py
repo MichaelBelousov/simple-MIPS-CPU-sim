@@ -28,7 +28,12 @@ pinstr = pitype | prtype | pjtype | 'nop'
 
 ### END ###
 
-# TODO: fix names
+def makeinstrsheet(instrs):
+    res = 'Address    Code           Basic                       Source\n'
+    for i in instrs:
+        res += '\n'
+    return res
+
 # functions that return the binary data representing an instruction
 def rep_rtype(i):
     try:
@@ -89,7 +94,7 @@ def beq(p):
     return Bint(opcode+rep_itype(p))
 def j(p):
     opcode = '000010'
-    return Bint(opcode+Bint(p[1],pad=26))
+    return Bint(opcode+str(Bint(p[1],pad=26)))
 def nop(p):
     return Bint(0)
 
@@ -113,7 +118,8 @@ def parseinstr(i):
     except KeyError as e:
         raise KeyError('no such instruction, {}'.format(e))
 
-def stripcom(s, delim):
+# TODO: add label detection and assembly
+def stripcomments(s, delim):
     """strip lines of comments and whitespace"""
     if delim in s:
         return s.split(delim)[0].strip()
@@ -125,14 +131,18 @@ if __name__ == '__main__':
     args = argparse.ArgumentParser(description='Simulate a single-cycle MIPS processor')
     args.add_argument('inputfile', metavar='INPUTFILE', type=str, nargs='?', default=sys.stdin,
                         help='file to read input from, if absent defaults to stdin')
+    args.add_argument('cycleamt', metavar='CYCLEAMOUNT', type=int, nargs='?',
+                        help='amount of cycles to run before stopping')
     args.add_argument('-v', '--verbose', action='store_true',
                         help='run in verbose mode')
     args.add_argument('-p1', '--phase1', action='store_true',
                         help='only run phase1 code')
     args = args.parse_args()
+    if 'inputfile' in args:
+        args.inputfile = open(args.inputfile,'r')
     bin_instr = []
     for l in args.inputfile:
-        l = stripcom(l, '#')
+        l = stripcomments(l, '#')
         if not l:
             continue
         try:
@@ -143,5 +153,6 @@ if __name__ == '__main__':
             raise SyntaxError('syntax of the instruction, "{}", is incorrect'.format(l))
     # construct CPU
     C = MIPSSingleCycleCPU()
+    C.inspector.cyclelimit = args.cycleamt
     C.loadinstr(bin_instr)
     C.run()

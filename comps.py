@@ -309,57 +309,87 @@ class Inspector(ClockedComponent):
         self.branchand = branchand
         self.pcaddour = pcaddfour
         self.shiftl2 = shiftl2
+        self.cyclelimit = -1
     def onupclock(self):
         # self.clock()
-        self.oversee()
         self.stat()
     def stat(self):
+        self.eachcycle()
         if self.cyclec == 0:  # skips first cycle cuz it's invalid
+            self.precycles()
             self.cyclec += 1
-            return
+        elif self.cyclec == self.cyclelimit:
+            self.lastcycle
+            raise KeyboardInterrupt  # XXX: please do this better
+        self.eachcycle()
         self.cyclec += 1
-    def oversee(self):
-        if self.cyclec == 0: return
+    def lastcycle(self):
+        pass
+    def precycles(self):
+        pass
+    def eachcycle(self):
+        if self.cyclec == 0: return  # TODO: replace using above conditional
         utilities.print_new_cycle(self.cyclec)
-        print('Data') 
-        pprint(self.datamem)
-        print('Registers')
-        print(self.regisfile)
-        print('PC:', self.pc.outs['out'])
-        print('Instr:', self.instrmem.outs['read'])
-        print('Opcode:', self.control.ins['in']())
-        print('s:', self.instrmem.outs['read'][6:11])
-        print('t:', self.instrmem.outs['read'][11:16])
-        print('d:', self.instrmem.outs['read'][16:21])
-        print('shiftamt:', self.instrmem.outs['read'][21:26])
-        print('funct:', self.instrmem.outs['read'][26:32])
-        print('immediate:', self.instrmem.outs['read'][16:32])
-        print('RegDst', self.control.outs['RegDst'])
-        print('ALUSrc', self.control.outs['ALUSrc'])
-        print('MemtoReg', self.control.outs['MemtoReg'])
-        print('RegWrite', self.control.outs['RegWrite'])
-        print('MemRead', self.control.outs['MemRead'])
-        print('MemWrite', self.control.outs['MemWrite'])
-        print('Branch', self.control.outs['Branch'])
-        print('ALUOp', self.control.outs['ALUOp'])
-        print('Jump', self.control.outs['Jump'])
-        print('DataAddr', self.datamem.ins['addr']())
-        print('DataWrite', self.datamem.ins['write']())
-        print('Data_dowrite', self.datamem.ins['write_cont']())
-        print('Data_doread', self.datamem.ins['read_cont']())
-        print('DataRead', self.datamem.outs['read'])
-        # '''
-        print('ALU-out', self.alu.outs['out'])
-        print('ALU-in1', self.alu.ins['in_1']())
-        print('ALU-in2', self.alu.ins['in_2']())
-        print('ALU-in-cont', self.alu.ins['control']())
-        print('ALU-cont-in', self.alucont.ins['ALUOp']())
-        print('ALU-cont-funct', self.alucont.ins['funct']())
-        print('ALU-cont-out', self.alucont.outs['ALUOp'])
-        print('signext-in', self.signext.ins['in']())
-        print('signext-out', self.signext.outs['out'])
-        print('RegWrite', self.regisfile.ins['RegWrite']())
-        print('RegWriteNumb(mux)', self.writeregmux.outs['out'])
-        print('RegWriteNumb', self.regisfile.ins['write_reg']())
-        print('RegWriteData', self.regisfile.ins['write_data']())
-        # '''
+        # print(self.regisfile)
+        pc = self.pc.outs['out']
+        print(f'PC={pc.hex()} {pc.dec()}')
+        instr = self.instrmem.outs['read']
+        print(f'instruction={instr.hex()} {instr.dec()}')
+        op = self.control.ins['in']()  # TODO: change to out
+        print(f'op={op.bin()} {op.dec()}')
+        rs = self.instrmem.outs['read'][6:11]
+        print(f'rs={rs.bin()} {rs.dec()}')
+        rt = self.instrmem.outs['read'][11:16]
+        print(f'rt={rt.bin()} {rt.dec()}')
+        rd = self.instrmem.outs['read'][16:21]
+        print(f'rd={rd.bin()} {rd.dec()}')
+        imm = self.instrmem.outs['read'][16:32]
+        print(f'immediate={rd.hex()} {rd.dec()}')
+        regdst = self.control.outs['RegDst']
+        print(f'RegDst={regdst.bin_nopre(1)}')
+        jump = self.control.outs['Jump']
+        print(f'Jump={jump.bin_nopre(1)}')
+        branch = self.control.outs['Branch']
+        print(f'Branch={branch.bin_nopre(1)}')
+        memread = self.control.outs['MemRead']
+        print(f'MemRead={memread.bin_nopre(1)}')
+        memtoreg = self.control.outs['MemtoReg']
+        print(f'MemtoReg={memtoreg.bin_nopre(1)}')
+        aluop = self.control.outs['ALUOp']
+        print(f'ALUOp={aluop.bin_nopre(1)}')
+        memwrite = self.control.outs['MemWrite']
+        print(f'MemWrite={memwrite.bin_nopre(1)}')
+        alusrc = self.control.outs['ALUSrc']
+        print(f'ALUSrc={alusrc.bin_nopre(1)}')
+        regwrite = self.control.outs['RegWrite']
+        print(f'RegWrite={regwrite.bin_nopre(1)}')
+        signext = self.signext.outs['out']
+        print(f'Sign_extended_immediate={signext.hex()} {signext.dec()}')
+        alu_op = self.alucont.outs['ALUOp']
+        print(f'ALU_operation={alu_op.bin()} {alu_op.dec()}')
+        branchaddr = self.branchalu.outs['out']
+        print(f'Branch_address={branchaddr.hex()} {branchaddr.dec()}')
+        jumpaddr = self.shiftl2.outs['out']  # XXX: this could be problematic
+        print(f'Jump_address={jumpaddr.hex()} {jumpaddr.dec()}')
+        writereg = self.writeregmux.outs['out']
+        print(f'Write_register={writereg.hex()} {writereg.dec()}')
+        rfreaddata1 = self.regisfile.outs['read_data_1']
+        print(f'RF_read_data_1={rfreaddata1.hex()} {rfreaddata1.dec()}')
+        rfreaddata2 = self.regisfile.outs['read_data_2']
+        print(f'RF_read_data_2={rfreaddata2.hex()} {rfreaddata2.dec()}')
+        aluinp2 = self.alu.ins['in_2']()
+        print(f'ALU_input_2={aluinp2.hex()} {aluinp2.dec()}')
+        alures = self.alu.outs['out']
+        print(f'ALU_result={alures.hex()} {alures.dec()}')
+        aluzero = self.alu.outs['zero']
+        print(f'Zero={aluzero.bin_nopre(1)}')
+        memreaddata = self.datamem.outs['read']
+        print(f'MEM_read_data={memreaddata.hex()} {memreaddata.dec()}')
+        writedata = self.datamem.ins['write']()
+        print(f'Write_data={writedata.hex()} {writedata.dec()}')
+        pcsrc = self.jumpmux.outs['out']  # XXX: figure out some of these
+        print(f'PCSrc={pcsrc.bin_nopre(1)}')
+        pcbranch = self.branchmux.outs['out']
+        print(f'PC_branch={pcbranch.hex()} {pcbranch.dec()}')
+        pcnew = self.jumpmux.outs['out']
+        print(f'PC_new={pcnew.hex()} {pcnew.dec()}')

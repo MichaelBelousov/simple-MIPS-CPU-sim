@@ -45,12 +45,20 @@ class Binint:
         return len(str(self))
     def __repr__(self):
         if self.pad == 32:
-            return self.hexrepr()
+            return self.hex()
         else:
             return str(self)
-    def hexrepr(self):
+    def hex(self):
         h = '0x'+hex(int(self.val))[2:].rjust(self.pad//4, '0')
         return h
+    def bin_nopre(self, p=None):
+        return self.bin(p)[2:]
+    def bin(self, p=None): 
+        if p is None:
+            p = self.pad
+        return '0b'+str(self[-p:])
+    def dec(self): 
+        return str(self.val)
     def __add__(self, other):
         if not isinstance(other, Binint):
             other = Binint(other)
@@ -90,10 +98,19 @@ class Binint:
             other = Binint(other)
         div, rem = divmod(self.val, other.val)
         return Binint(div, self.pad), Binint(rem, self.pad)
-    def __getitem__(self, item):
+    def __getitem__(self, item): 
         p = 1
         if isinstance(item, slice):
-            p = item.stop - item.start
+            start, stop = item.start, item.stop
+            if item.start is None:
+                start = 0
+            if item.stop is None:
+                stop = len(self)
+            if start < 0:
+                start = len(self)+start
+            if stop < 0:
+                stop = len(self)+stop
+            p = stop - start
         return Binint(str(self)[item], pad=p)
     def __hash__(self):
         return hash(str(self))
