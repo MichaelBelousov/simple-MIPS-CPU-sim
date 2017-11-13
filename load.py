@@ -1,6 +1,6 @@
 import sys
-# TODO: specify pyparsing imports
-from pyparsing import * 
+from pyparsing import ParseException, Suppress, Combine, Word, alphanums, alphas
+import re  # for instruction dump
 import argparse
 from MIPSCPU import *
 from regnum import regnums
@@ -123,11 +123,10 @@ def parseinstr(i):
         print(f'no such instruction, {e}')
         raise
 
-def loadhex(s):
-    result = []
-    import re
-    hexre = re.compile(r'^0x[09af]{8}')  # hex at start of line
+def loaddump(s):
+    hexre = re.compile(r'(?!^)(?<=  )0x[0-9a-f]{8}', re.M)  # second hex per line
     result = hexre.findall(s)
+    result = [Bint(eval(r)) for r in result]
     return result
 
 # TODO: add label detection and assembly
@@ -141,41 +140,49 @@ def process(s, delim='#'):
         return s.strip()
     # replace labels
 
+class LabelDict(dict):
+    def __init__(self):
+        # add reserved keywords to prevent using them as labels
+        reserved = tuple(instr.keys())
+        self.update({k:None for k in reserved})
+    def __setitem__(self, itm, val):
+        if itm in self:
+            raise TypeError('You have a duplicate or illegal label')
+        return super().__setitmval__(itm,val)
+
 def process(raw, comment='#',label=':'):
     """process raw mips code"""
     # strip comments
     lines = []
     for l in raw.split('\n'):
         if comment in l:
-            result = split(comment)[0].strip()
+            l = l.split(comment)[0].strip()
         else:
-            l = s.strip()
+            l = l.strip()
         if l: 
-            lines.append(i)
+            lines.append(l)
     # determine labels
+    labels = LabelDict()
+    i = 0
     for l in lines:
-        
-    # replace labels
-
-
-
-    # XXX: DONT check amount of colons
-    offset=0
-    for l in raw.split('\n'):
-        code, label = None, None
-        c = l.count(label)
-        if c == 1:
-            label, code = (i.strip() for i in l.split(label))
-        elif c == 0:
-            code = l
+        if label not in l:
+            continue
+        l = [i.strip() for i in l.split(label)]
+        if len(l) == 1:  # only has a label
+            labels[l[0]] = i+1
+        elif len(l) == 2:
+            labels[l[0]] = i
         else:
-            raise SyntaxError('too many colons')
-        result = []
-        if comment in s:
-            result = s.split(comment)[0].strip()
-        else:
-            return s.strip()
+            raise SyntaxError('Do you have two labels on one line?')
+        i += 1
+    from pprint import pprint
+    print('labels')
+    pprint(labels)
     # replace labels
+    for l in lines:
+        for label in labels:
+            l.replace(label, str(Bint(labels[label])))
+    return lines
     
 if __name__ == '__main__':
     # Load input
@@ -188,15 +195,20 @@ if __name__ == '__main__':
                         help='run in verbose mode')
     args.add_argument('-p1', '--phase1', action='store_true',
                         help='only run phase1 code')
+    args.add_argument('-r', '--raw', action='store_false',
+                        help='input is')
     args = args.parse_args()
-    if 'inputfile' in args:
+    print(args)
+    if 'inputfile' is not sys.stdin:
         args.inputfile = open(args.inputfile,'r')
     # assemble
     bin_instr = []
-    for l in args.inputfile:
-        l = process(l)
-        if not l:
-            continue
+    processed = []
+    if args.raw:
+        processed = process(args.inputfile.read())
+    else:
+        processed = loaddump(args.inputfile.read())
+    for l in processed:
         try:
             i = pinstr.parseString(l)
             res = parseinstr(i)
