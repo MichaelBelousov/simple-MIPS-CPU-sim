@@ -32,9 +32,12 @@ class ClockedComponent(Component):
         self.clock = clock
     def tick(self):
         super().tick()
+        self.onupclock()
+        ''' # previous async code
         if self.clock.outs['clock'] != self._lastclock:
             self.onupclock()
             self._lastclock = self.clock.outs['clock']
+        '''
     def onupclock(self):
         raise NotImplementedError
 
@@ -96,7 +99,8 @@ class Clock(Component):  # TODO: make clocked component
         self.outs['clock'] = Bint(1)
     def tick(self):
         super().tick()
-        self.outs['clock'] = Bint(not self.outs['clock'])
+        # self.outs['clock'] = Bint(not self.outs['clock'])
+        self.outs['clock'] = Bint(1)
     #@deprecate
     def OLD_tick(self):
         super().tick()
@@ -294,9 +298,9 @@ class Inspector(ClockedComponent):
     def __init__(self, clock, pc, alu, instrmem, datamem, 
             regisfile, control, alucont, branchalu, signext, 
             writeregmux, alumux,writeregdatamux,branchmux,jumpmux, 
-            branchand,pcaddfour,shiftl2):
+            branchand,pcaddfour,branchshift,jumpshift):
         super().__init__(clock)
-        self.cyclec = 0
+        self.cyclec = 1
         self.pc = pc
         self.alu = alu
         self.instrmem = instrmem
@@ -312,16 +316,17 @@ class Inspector(ClockedComponent):
         self.branchmux = branchmux
         self.jumpmux = jumpmux
         self.branchand = branchand
-        self.pcaddour = pcaddfour
-        self.shiftl2 = shiftl2
+        self.pcaddfour = pcaddfour
+        self.branchshift = branchshift
+        self.jumpshift = jumpshift
         self.cyclelimit = -1
+    def tick(self):
+        self.stat()
     def onupclock(self):
         # self.clock()
-        self.stat()
+        pass
     def stat(self):
-        if self.cyclec == 0:  # skips first cycle cuz it's invalid
-            self.precycles() # TODO: stop invalid first cycle
-        elif self.cyclec == self.cyclelimit:
+        if self.cyclec == self.cyclelimit:
             self.lastcycle()
             raise KeyboardInterrupt  # XXX: please do this better
         else:
@@ -331,7 +336,8 @@ class Inspector(ClockedComponent):
         utilities.print_new_cycle(self.cyclec)
         pc = self.pc.outs['out']
         print(f'PC={pc.hex()} {pc.dec()}')
-        print('No More Instructions')
+        if pc not in self.instrmem:
+            print('No More Instructions')
         # dumps register contents
         regdump = ''
         for i in range(8):
@@ -342,11 +348,25 @@ class Inspector(ClockedComponent):
         print(regdump, end='')
         print(f'Number of cycles={self.cyclec}')
     def precycles(self):
+        # pc = self.pc.outs['out']
+        # print(f'PC={pc.hex()} {pc.dec()}') # XXX: remove
         pass
     def eachcycle(self):
         utilities.print_new_cycle(self.cyclec)
+        # print(self.instrmem)
         # print(self.regisfile)
-        pc = self.pc.outs['out']
+        #############################################
+        print(f'PCADDFOUR={self.pcaddfour.outs["out"]}') 
+        print(f'JUMPMUX={self.jumpmux.outs["out"]}') 
+        print(f'BRANCHAND={self.branchand.outs["out"]}') 
+        print(f'BRANCHALU={self.branchalu.outs["out"]}') 
+        print()
+        print(f'BRANCHMUXOut={self.branchmux.outs["out"]}') 
+        print(f'BRANCHMUXIn0={self.branchmux.ins["in_1"]()}') 
+        print(f'BRANCHMUXIn1={self.branchmux.ins["in_2"]()}') 
+        print(f'BRANCHMUXcont={self.branchmux.ins["control"]()}') 
+        #############################################
+        pc = self.pc.reg.val
         print(f'PC={pc.hex()} {pc.dec()}')
         instr = self.instrmem.outs['read']
         print(f'instruction={instr.hex()} {instr.dec()}')
@@ -384,7 +404,7 @@ class Inspector(ClockedComponent):
         print(f'ALU_operation={alu_op.bin()} {alu_op.dec()}')
         branchaddr = self.branchalu.outs['out']
         print(f'Branch_address={branchaddr.hex()} {branchaddr.dec()}')
-        jumpaddr = self.shiftl2.outs['out']  # XXX: this could be problematic
+        jumpaddr = self.branchalu.outs['out']
         print(f'Jump_address={jumpaddr.hex()} {jumpaddr.dec()}')
         writereg = self.writeregmux.outs['out']
         print(f'Write_register={writereg.hex()} {writereg.dec()}')
@@ -402,7 +422,7 @@ class Inspector(ClockedComponent):
         print(f'MEM_read_data={memreaddata.hex()} {memreaddata.dec()}')
         writedata = self.datamem.ins['write']()
         print(f'Write_data={writedata.hex()} {writedata.dec()}')
-        pcsrc = self.jumpmux.outs['out']  # XXX: figure out some of these
+        pcsrc = self.branchmux.outs['out']
         print(f'PCSrc={pcsrc.bin_nopre(1)}')
         pcbranch = self.branchmux.outs['out']
         print(f'PC_branch={pcbranch.hex()} {pcbranch.dec()}')

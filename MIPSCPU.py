@@ -52,10 +52,16 @@ class MIPSSingleCycleCPU(CPU):
         jumpmux = Mux()
         branchand = And()
         pcaddfour = AddFour()
-        shiftl2 = ShiftLeftTwo()
-        self.comps = [clock,pc,instrmem,datamem,regisfile,control,alucont,
+        jumpshift = ShiftLeftTwo()
+        branchshift = ShiftLeftTwo()
+        inspector = Inspector(clock,pc,alu,instrmem,datamem,regisfile,control,alucont,branchalu,
                         signext,writeregmux,alumux,writeregdatamux,branchmux,jumpmux,
-                        branchand,pcaddfour,shiftl2,alu,branchalu]
+                        branchand,pcaddfour,branchshift, jumpshift)
+        self.inspector = inspector
+        self.comps = [clock,instrmem,control,alucont,regisfile,writeregmux,
+                        signext,alumux,alu,datamem,writeregdatamux,branchand,
+                        pcaddfour,jumpshift,branchshift,branchalu,branchmux,jumpmux,
+                        pc, inspector]
         # connect component
         pc.bind('in', jumpmux, 'out')
         alu.bind('in_1', regisfile, 'read_data_1')
@@ -78,7 +84,7 @@ class MIPSSingleCycleCPU(CPU):
         alucont.bind('ALUOp', control, 'ALUOp')
         alucont.bind('funct', instrmem, 'read', mask=(26,32))
         branchalu.bind('in_1', pcaddfour, 'out')
-        branchalu.bind('in_2', shiftl2, 'out')
+        branchalu.bind('in_2', branchshift, 'out')
         branchalu.ins['control'] = lambda : Bint(0b0010)
         signext.bind('in', instrmem, 'read', mask=(16,32))
         writeregmux.bind('in_1', instrmem, 'read', mask=(11,16))
@@ -94,18 +100,13 @@ class MIPSSingleCycleCPU(CPU):
         branchmux.bind('in_2', branchalu, 'out') 
         branchmux.bind('control', branchand, 'out')
         jumpmux.bind('in_1', branchmux, 'out')  # flipped in the diagram
-        jumpmux.bind('in_2', shiftl2, 'out')
+        jumpmux.bind('in_2', jumpshift, 'out')
         jumpmux.bind('control', control, 'Jump')  # add single bit mask?
         branchand.bind('in_1', control, 'Branch')
         branchand.bind('in_2', alu, 'zero')
         pcaddfour.bind('in', pc, 'out')
-        shiftl2.bind('in', signext, 'out')
-        # introspective component
-        inspector = Inspector(clock,pc,alu,instrmem,datamem,regisfile,control,alucont,branchalu,
-                        signext,writeregmux,alumux,writeregdatamux,branchmux,jumpmux,
-                        branchand,pcaddfour,shiftl2)
-        self.inspector = inspector
-        self.comps.insert(1,inspector)  # tick inspector first after clock
+        branchshift.bind('in', signext, 'out')
+        jumpshift.bind('in', instrmem, 'read', mask=(6,32))
     def loadinstr(self, instrs={}):
         for addr in instrs:
             print(f'MEM_D {addr.hex()} {instrs[addr].hex()} {instrs[addr].dec()}')
