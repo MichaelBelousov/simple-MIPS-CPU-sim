@@ -88,13 +88,17 @@ class Memory(Component, dict):
         dict.__setitem__(self, loc+2, val[16:24])
         dict.__setitem__(self, loc+3, val[24:32])
 
-class Clock(Component):
+class Clock(Component):  # TODO: make clocked component
     def __init__(self, inittime=time()):
         super().__init__()
         self.inittime = inittime
         self.period = 0.1  # in seconds
         self.outs['clock'] = Bint(1)
     def tick(self):
+        super().tick()
+        self.outs['clock'] = Bint(not self.outs['clock'])
+    #@deprecate
+    def OLD_tick(self):
         super().tick()
         per = self.period
         self.outs['clock'] = Bint((self.inittime - time()) % per >= per/2)
