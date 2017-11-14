@@ -21,7 +21,7 @@ class CPU:
     def halt(self):
         # print('terminating...')  # TODO: add pausing with inspection interface
         sys.exit()
-    def loadinstr(self, instrs=[]):
+    def loadinstr(self, instrs={}):
         """load a list of instructions into the CPU
         instruction memory."""
         pass
@@ -34,7 +34,8 @@ class MIPSSingleCycleCPU(CPU):
         super().__init__()
         # construct components
         clock = Clock()
-        pc = PC(0, clock)
+        instrmemoffset = 0x00400000
+        pc = PC(instrmemoffset, clock)
         alu = ALU(clock)
         instrmem = Memory()
         self.instrmem = instrmem
@@ -105,9 +106,11 @@ class MIPSSingleCycleCPU(CPU):
                         branchand,pcaddfour,shiftl2)
         self.inspector = inspector
         self.comps.insert(1,inspector)  # tick inspector first after clock
-    def loadinstr(self, instrs=[]):
-        memoffset = 4194304
-        for i in range(0, len(instrs)):
-            self.instrmem[memoffset+4*i] = instrs[i]
+    def loadinstr(self, instrs={}):
+        for addr in instrs:
+            print(f'MEM_D {addr.hex()} {instrs[addr].hex()} {instrs[addr].dec()}')
+        for addr in instrs:
+            self.instrmem[addr] = instrs[addr]
+        # print(self.instrmem)
     def stat(self):
         self.inspector.stat()

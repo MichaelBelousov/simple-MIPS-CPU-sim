@@ -39,6 +39,7 @@ class ClockedComponent(Component):
         raise NotImplementedError
 
 class PC(ClockedComponent):
+    # FIXME: PC is being set on the invalid first cycle
     def __init__(self, initval, clock):
         super().__init__(clock)
         self.ins['in'] = Bint(initval)
@@ -91,7 +92,7 @@ class Clock(Component):
     def __init__(self, inittime=time()):
         super().__init__()
         self.inittime = inittime
-        self.period = 1  # in seconds
+        self.period = 0.1  # in seconds
         self.outs['clock'] = Bint(1)
     def tick(self):
         super().tick()
@@ -314,21 +315,31 @@ class Inspector(ClockedComponent):
         # self.clock()
         self.stat()
     def stat(self):
-        self.eachcycle()
         if self.cyclec == 0:  # skips first cycle cuz it's invalid
-            self.precycles()
-            self.cyclec += 1
+            self.precycles() # TODO: stop invalid first cycle
         elif self.cyclec == self.cyclelimit:
-            self.lastcycle
+            self.lastcycle()
             raise KeyboardInterrupt  # XXX: please do this better
-        self.eachcycle()
+        else:
+            self.eachcycle()
         self.cyclec += 1
     def lastcycle(self):
-        pass
+        utilities.print_new_cycle(self.cyclec)
+        pc = self.pc.outs['out']
+        print(f'PC={pc.hex()} {pc.dec()}')
+        print('No More Instructions')
+        # dumps register contents
+        regdump = ''
+        for i in range(8):
+            for j in range(4):
+                r = self.regisfile.regs[bin(4*i+j)[2:].zfill(5)].val
+                regdump += f'${str(4*i+j).zfill(2)}={r.hex()}({r.dec().rjust(10)})   '
+            regdump += '\n'
+        print(regdump, end='')
+        print(f'Number of cycles={self.cyclec}')
     def precycles(self):
         pass
     def eachcycle(self):
-        if self.cyclec == 0: return  # TODO: replace using above conditional
         utilities.print_new_cycle(self.cyclec)
         # print(self.regisfile)
         pc = self.pc.outs['out']

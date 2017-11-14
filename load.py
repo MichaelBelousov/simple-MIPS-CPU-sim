@@ -14,9 +14,9 @@ RPAR = Suppress(')')
 pregis = Combine('$'+Word(alphanums))
 # r-type instruction pattern
 prtype = Word(alphas) + 2*(pregis+COMMA) + pregis
-# i-type instruction pattern
 
 pintliteral = Word('-'+alphanums)
+# i-type instruction pattern
 pitypemem = Word(alphas) + pregis + COMMA + pintliteral + LPAR + pregis + RPAR
 pitypenrm = Word(alphas) + 2*(pregis+COMMA) + pintliteral
 
@@ -116,7 +116,7 @@ instr = {
         'nop' : nop
         }
 
-def parseinstr(i):
+def assembleinstr(i):
     try:
         return instr[i[0]](i)
     except KeyError as e:
@@ -124,65 +124,65 @@ def parseinstr(i):
         raise
 
 def loaddump(s):
-    hexre = re.compile(r'(?!^)(?<=  )0x[0-9a-f]{8}', re.M)  # second hex per line
-    result = hexre.findall(s)
-    result = [Bint(eval(r)) for r in result]
+    result = {}
+    for line in s.split('\n'):
+        try:
+            line = line.split()
+            addr, code = (Bint(eval(l)) for l in line[0:2])
+            result[addr] = code
+        except: pass  # XXX: replace with properly handled exception
     return result
-
-# TODO: add label detection and assembly
-def process(s, delim='#'):
-    """process raw mips code"""
-    # strip comments
-    result = []
-    if delim in s:
-        result = s.split(delim)[0].strip()
-    else:
-        return s.strip()
-    # replace labels
 
 class LabelDict(dict):
     def __init__(self):
         # add reserved keywords to prevent using them as labels
-        reserved = tuple(instr.keys())
-        self.update({k:None for k in reserved})
+        self.reserved = tuple(instr.keys())
     def __setitem__(self, itm, val):
+        if itm in self.reserved:
+            raise TypeError('You have a reserved as label')
         if itm in self:
-            raise TypeError('You have a duplicate or illegal label')
-        return super().__setitmval__(itm,val)
+            raise TypeError('You have a duplicate')
+        return super().__setitem__(itm,val)
 
-def process(raw, comment='#',label=':'):
+def assemble(content, comment='#',labeld=':'):
     """process raw mips code"""
-    # strip comments
     lines = []
-    for l in raw.split('\n'):
+    i = 0
+    labels = LabelDict()
+    # TODO: add syntax exceptions
+    for l in content.split('\n'):
+        # strip comments
         if comment in l:
-            l = l.split(comment)[0].strip()
+            l = l.partition('#')[0].strip()
         else:
             l = l.strip()
+        # separate labels
+        label = None
+        if labeld in l:
+            label, _, l = (i.strip() for i in l.partition(labeld))
+        if label:
+            labels[label] = i if l else i+4
         if l: 
             lines.append(l)
-    # determine labels
-    labels = LabelDict()
-    i = 0
-    for l in lines:
-        if label not in l:
-            continue
-        l = [i.strip() for i in l.split(label)]
-        if len(l) == 1:  # only has a label
-            labels[l[0]] = i+1
-        elif len(l) == 2:
-            labels[l[0]] = i
-        else:
-            raise SyntaxError('Do you have two labels on one line?')
-        i += 1
-    from pprint import pprint
-    print('labels')
-    pprint(labels)
+            i += 4
     # replace labels
-    for l in lines:
+    for i, l in enumerate(lines):
         for label in labels:
-            l.replace(label, str(Bint(labels[label])))
-    return lines
+            lines[i] = lines[i].replace(label, Bint(labels[label]).hex())
+    # assemble
+    offset = 0x00400000
+    result = {}
+    i = offset
+    for l in lines:
+        try:
+            parsed = pinstr.parseString(l)
+            res = assembleinstr(parsed)
+            result[offset+i] = res
+        except ParseException  as e:
+            print(f'syntax of the instruction, "{e.line}" at {e.col}, {e.lineno}, is incorrect')
+            raise
+        i += 4
+    return result
     
 if __name__ == '__main__':
     # Load input
@@ -195,27 +195,17 @@ if __name__ == '__main__':
                         help='run in verbose mode')
     args.add_argument('-p1', '--phase1', action='store_true',
                         help='only run phase1 code')
-    args.add_argument('-r', '--raw', action='store_false',
+    args.add_argument('-r', '--raw', action='store_true',
                         help='input is')
     args = args.parse_args()
-    print(args)
     if 'inputfile' is not sys.stdin:
         args.inputfile = open(args.inputfile,'r')
-    # assemble
-    bin_instr = []
-    processed = []
+    inp = args.inputfile.read()
+    bin_instr = {}
     if args.raw:
-        processed = process(args.inputfile.read())
+        bin_instr = process(inp)
     else:
-        processed = loaddump(args.inputfile.read())
-    for l in processed:
-        try:
-            i = pinstr.parseString(l)
-            res = parseinstr(i)
-            bin_instr.append(res)
-        except ParseException  as e:
-            print('syntax of the instruction, "{e.line}" at {e.col}, {e.lineno}, is incorrect')
-            raise
+        bin_instr = loaddump(inp)
     # construct CPU
     C = MIPSSingleCycleCPU()
     C.inspector.cyclelimit = args.cycleamt

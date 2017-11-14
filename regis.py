@@ -11,7 +11,7 @@ class Regis:
     @val.setter
     def val(self, inval):
         if not self.write:
-            raise Warning('Writing to read-only reg')
+            raise Warning('Writing to read-only reg')  # DAADADADANGER ZONE
         if self.lock: return
         self._val = inval
     def __repr__(self):
