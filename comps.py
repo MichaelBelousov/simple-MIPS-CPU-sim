@@ -325,17 +325,18 @@ class Inspector(ClockedComponent):
     def onupclock(self):
         # self.clock()
         pass
+    def halt(self):
+        raise KeyboardInterrupt
     def stat(self):
         if self.cyclec == self.cyclelimit:
             self.lastcycle()
-            raise KeyboardInterrupt  # XXX: please do this better
+            self.halt()
         else:
             self.eachcycle()
         self.cyclec += 1
     def lastcycle(self):
-        utilities.print_new_cycle(self.cyclec)
-        pc = self.pc.outs['out']
-        print(f'PC={pc.hex()} {pc.dec()}')
+        pc = self.pc.reg.val
+        self.eachcycle()
         if pc not in self.instrmem:
             print('No More Instructions')
         # dumps register contents
@@ -343,35 +344,22 @@ class Inspector(ClockedComponent):
         for i in range(8):
             for j in range(4):
                 r = self.regisfile.regs[bin(4*i+j)[2:].zfill(5)].val
-                regdump += f'${str(4*i+j).zfill(2)}={r.hex()}({r.dec().rjust(10)})   '
+                regdump += f'${str(4*i+j).zfill(2)}={r.hex()}({r.dec().rjust(11)})    '
             regdump += '\n'
         print(regdump, end='')
         print(f'Number of cycles={self.cyclec}')
     def precycles(self):
-        # pc = self.pc.outs['out']
-        # print(f'PC={pc.hex()} {pc.dec()}') # XXX: remove
         pass
     def eachcycle(self):
         utilities.print_new_cycle(self.cyclec)
-        # print(self.instrmem)
-        # print(self.regisfile)
-        #############################################
-        print(f'PCADDFOUR={self.pcaddfour.outs["out"]}') 
-        print(f'JUMPMUX={self.jumpmux.outs["out"]}') 
-        print(f'BRANCHAND={self.branchand.outs["out"]}') 
-        print(f'BRANCHALU={self.branchalu.outs["out"]}') 
-        print()
-        print(f'BRANCHMUXOut={self.branchmux.outs["out"]}') 
-        print(f'BRANCHMUXIn0={self.branchmux.ins["in_1"]()}') 
-        print(f'BRANCHMUXIn1={self.branchmux.ins["in_2"]()}') 
-        print(f'BRANCHMUXcont={self.branchmux.ins["control"]()}') 
-        #############################################
         pc = self.pc.reg.val
         print(f'PC={pc.hex()} {pc.dec()}')
         instr = self.instrmem.outs['read']
         print(f'instruction={instr.hex()} {instr.dec()}')
         op = self.control.ins['in']()  # TODO: change to out
-        print(f'op={op.bin()} {op.dec()}')
+        print(f'opcode={op.bin()} {op.dec()}')
+        funct = self.alucont.ins['funct']()  # TODO: change to out
+        print(f'funct={op.bin()} {op.dec()}')
         rs = self.instrmem.outs['read'][6:11]
         print(f'rs={rs.bin()} {rs.dec()}')
         rt = self.instrmem.outs['read'][11:16]
@@ -428,3 +416,6 @@ class Inspector(ClockedComponent):
         print(f'PC_branch={pcbranch.hex()} {pcbranch.dec()}')
         pcnew = self.jumpmux.outs['out']
         print(f'PC_new={pcnew.hex()} {pcnew.dec()}')
+        #TODO: prevent infinite loops
+        if pcnew not in self.instrmem:
+            self.halt()

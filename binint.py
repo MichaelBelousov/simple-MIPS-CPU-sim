@@ -1,5 +1,3 @@
-import math 
-
 class Binint:
     """high-level binary integer type"""
     # TODO: add class method for getting a string without constructing object
@@ -51,7 +49,7 @@ class Binint:
         else:
             return str(self)
     def hex(self):
-        h = '0x'+hex(int(self.val))[2:].rjust(math.ceil(self.pad/4), '0')
+        h = '0x'+hex(eval('0b'+str(self)))[2:].zfill(self.pad//4).upper()
         return h
     def bin_nopre(self, p=None):
         return self.bin(p)[2:]

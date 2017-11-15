@@ -61,7 +61,7 @@ class MIPSSingleCycleCPU(CPU):
         self.comps = [clock,instrmem,control,alucont,regisfile,writeregmux,
                         signext,alumux,alu,datamem,writeregdatamux,branchand,
                         pcaddfour,jumpshift,branchshift,branchalu,branchmux,jumpmux,
-                        pc, inspector]
+                        regisfile, inspector, pc]
         # connect component
         pc.bind('in', jumpmux, 'out')
         alu.bind('in_1', regisfile, 'read_data_1')
