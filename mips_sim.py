@@ -1,5 +1,14 @@
 #!/usr/bin/python3
 
+# check python version is > 3.6
+
+import subprocess as subproc
+import sys
+
+args = ['python3', 'load.py'] + list(sys.argv[1:])
+subproc.run(args)
+
+'''
 import sys, re
 import core_sc, utilities
 
@@ -42,4 +51,5 @@ actual_cycles = core.run(cycles)
 core.RF.dump()
 core.D_Mem.dump()
 print("Number of cycles=%d" % actual_cycles)
+'''
 
