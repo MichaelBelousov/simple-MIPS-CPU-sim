@@ -1,3 +1,4 @@
+# TODO: reimplement everything using bytes object or proper module
 class Binint:
     """high-level binary integer type"""
     # TODO: add class method for getting a string without constructing object
@@ -7,14 +8,14 @@ class Binint:
     def __init__(self, n, pad=32):
         # TODO: rename pad to bits
         if isinstance(n, str):
-            if n.startswith('0b') or n.startswith('0x'):
-                self.val = eval(n)
-            elif n.startswith('1'):
-                a = ''.join( ('1' if c=='0' else '0' for c in n) )
-                a = eval('0b'+a)+1
-                self.val = -a
-            elif n.count('1') + n.count('0') == len(n):
-                self.val = eval('0b'+n)
+            if n.count('1') + n.count('0') == len(n):
+                pad = len(n)  # XXX
+                if n.startswith('1'):  # XXX
+                    a = ''.join( ('1' if c=='0' else '0' for c in n) )
+                    a = eval('0b'+a)+1
+                    self.val = -a
+                else:
+                    self.val = eval('0b'+n)
             elif not n:
                 self.val = 0
             else:
@@ -57,8 +58,9 @@ class Binint:
         if p is None:
             p = self.pad
         return '0b'+str(self[-p:])
-    def dec(self): 
-        return str(self.val)
+    def dec(self, signed=False): 
+        b = Binint('0'+str(self))
+        return str(b.val)
     def __add__(self, other):
         if not isinstance(other, Binint):
             other = Binint(other)
@@ -88,6 +90,7 @@ class Binint:
         return Binint(self.val & other.val)
     def __or__(self, other):
         return Binint(self.val | other.val)
+    # TODO: don't preserve value during shift
     def __lshift__(self, shift):
         return Binint(self.val << shift, self.pad)
     def __rshift__(self, shift):
@@ -115,6 +118,10 @@ class Binint:
     def __hash__(self):
         return hash(str(self))
     def append(self, other):
+        if not isinstance(other, Binint):
+            other = Binint(other)
         return Binint(str(self) + str(other), pad = self.pad+other.pad)
     def prepend(self, other):
+        if not isinstance(other, Binint):
+            other = Binint(other)
         return Binint(str(other) + str(self), pad = self.pad+other.pad)

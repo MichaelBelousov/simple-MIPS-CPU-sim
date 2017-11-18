@@ -1,3 +1,18 @@
+#!/usr/bin/python3
+
+"""
+Michael Belousov CSE3666 MIPS simulator
+
+This file is responsible for loading instructions via command line input (stdin is an option!)
+into a default MIPSSingleCycleCPU object, and running it.
+Instructions by default are loaded via dumps ala tv01.txt, but there is a primitive assembler with support 
+for labels and comments which can be toggled with the -r/--raw option.
+
+For usage help, use the -h (--help) command, the argparse module is used to construct it effortlessly.
+
+Sorry for rewriting everything, but it's pretty simple (The CPU that is, assembly here is a bit more complicated)
+More comments are in the other files.
+"""
 import sys
 from pyparsing import ParseException, Suppress, Combine, Word, alphanums, alphas
 import re  # for instruction dump
@@ -170,7 +185,7 @@ def assemble(content, comment='#',labeld=':'):
         for label in labels:
             lines[i] = lines[i].replace(label, Bint(labels[label]).hex())
     # assemble
-    offset = 0x00400000
+    offset = Bint(0x00400000)
     result = {}
     i = offset
     for l in lines:
@@ -203,7 +218,7 @@ if __name__ == '__main__':
     inp = args.inputfile.read()
     bin_instr = {}
     if args.raw:
-        bin_instr = process(inp)
+        bin_instr = assemble(inp)
     else:
         bin_instr = loaddump(inp)
     # construct CPU
