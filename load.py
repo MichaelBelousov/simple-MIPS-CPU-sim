@@ -199,7 +199,7 @@ def assemble(content, comment='#',labeld=':'):
         i += 4
     return result
     
-if __name__ == '__main__':
+def main()
     # Load input
     args = argparse.ArgumentParser(description='Simulate a single-cycle MIPS processor')
     args.add_argument('inputfile', metavar='INPUTFILE', type=str, nargs='?', default=sys.stdin,
@@ -226,3 +226,6 @@ if __name__ == '__main__':
     C.inspector.cyclelimit = args.cycleamt
     C.loadinstr(bin_instr)
     C.run()
+
+if __name__ == '__main__':
+    main()
