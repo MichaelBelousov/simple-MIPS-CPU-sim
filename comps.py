@@ -29,7 +29,6 @@ from time import time
 from binint import Binint as Bint
 from regis import Regis, makeregispile
 from pprint import pformat
-import utilities
 
 # TODO: add repr to all components
 

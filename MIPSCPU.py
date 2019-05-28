@@ -17,9 +17,7 @@ class CPU:
     def tick(self):
         for c in self.comps:
             c.tick()
-            # print('TICK')
     def halt(self):
-        # print('terminating...')  # TODO: add pausing with inspection interface
         sys.exit()
     def loadinstr(self, instrs={}):
         """load a list of instructions into the CPU
